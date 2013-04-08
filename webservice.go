@@ -83,6 +83,6 @@ func callService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return sr, nil
 }

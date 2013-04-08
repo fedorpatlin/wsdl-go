@@ -1,8 +1,8 @@
 package webservice
 
 import (
-	"testing"
 	"encoding/xml"
+	"testing"
 )
 
 type ObterUsuariosSoapIn struct {
@@ -71,8 +71,8 @@ type AuthEndpointService struct {
 func NewAuthEndpointService() *AuthEndpointService {
 	s := &AuthEndpointService{}
 	s.Url = "http://localhost/Santander/Webservices/AuthService/AuthEndpointService.asmx"
-	
-	return s	
+
+	return s
 }
 
 // função de chamada de exemplo
@@ -95,7 +95,6 @@ func (s AuthEndpointService) ObterUsuarios(param UsuarioParamDTO) (r *UsuarioRes
 
 	return &so.Return, nil
 }
-
 
 func TestAuthEndpointService(t *testing.T) {
 	s := NewAuthEndpointService()
