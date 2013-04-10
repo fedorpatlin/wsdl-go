@@ -6,10 +6,9 @@ import (
 )
 
 type ObterUsuariosSoapIn struct {
-	XMLName      xml.Name        `xml:"obterUsuarios"`
-	XMLNamespace string          `xml:"xmlns,attr"`
-	Action       string          `xml:"-"`
-	Param        UsuarioParamDTO `xml:"param"`
+	XMLName xml.Name        `xml:"http://webservice.auth.app.bsbr.altec.com/ obterUsuarios"`
+	Action  string          `xml:"-"`
+	Param   UsuarioParamDTO `xml:"param"`
 }
 
 func (si ObterUsuariosSoapIn) GetAction() string {
@@ -17,14 +16,12 @@ func (si ObterUsuariosSoapIn) GetAction() string {
 }
 
 type ObterUsuariosSoapOut struct {
-	XMLName      xml.Name          `xml:"obterUsuariosResponse"`
-	XMLNamespace string            `xml:"xmlns,attr"`
-	Return       UsuarioResultList `xml:"return"`
+	XMLName xml.Name          `xml:"http://webservice.auth.app.bsbr.altec.com/ obterUsuariosResponse"`
+	Return  UsuarioResultList `xml:"return"`
 }
 
 func NewObterUsuariosSoapIn() ObterUsuariosSoapIn {
 	si := ObterUsuariosSoapIn{}
-	si.XMLNamespace = "http://webservice.auth.app.bsbr.altec.com/"
 	si.Action = ""
 
 	return si

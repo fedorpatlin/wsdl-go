@@ -12,10 +12,10 @@ type SoapIn interface {
 }
 
 type SoapEnvelope struct {
-	XMLName  xml.Name `xml:"soap:Envelope"`
-	AttrXsi  string   `xml:"xmlns:xsi,attr"`
-	AttrXsd  string   `xml:"xmlns:xsd,attr"`
-	AttrSoap string   `xml:"xmlns:soap,attr"`
+	XMLName  xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Envelope"`
+	AttrXsi  string   `xml:"xmlns xsi,attr"`
+	AttrXsd  string   `xml:"xmlns xsd,attr"`
+	AttrSoap string   `xml:"xmlns soap,attr"`
 	Body     SoapBody
 }
 
@@ -29,11 +29,11 @@ func NewSoapEnvelope() *SoapEnvelope {
 }
 
 type SoapBody struct {
-	XMLName xml.Name `xml:"soap:Body"`
+	XMLName xml.Name `xml:"http://schemas.xmlsoap.org/soap/envelope/ Body"`
 	Content string   `xml:",innerxml"`
 }
 
-func callService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
+func CallService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
 	// cria o soap envelope
 	se := NewSoapEnvelope()
 
