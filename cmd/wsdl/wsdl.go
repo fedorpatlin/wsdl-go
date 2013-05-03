@@ -54,20 +54,20 @@ type PortTypeOperationMessage struct {
 }
 
 type Binding struct {
-	AttrName    string             `xml:"name,attr"`
-	AttrType    string             `xml:"type,attr"`
+	Name    string             `xml:"name,attr"`
+	Type    string             `xml:"type,attr"`
 	SoapBinding SoapBinding        `xml:"binding"`
 	Operations  []BindingOperation `xml:"operation"`
 }
 
 type SoapBinding struct {
 	XMLName       xml.Name `xml:"http://schemas.xmlsoap.org/wsdl/soap/ binding"`
-	AttrTransport string   `xml:"transport,attr"`
-	AttrStyle     string   `xml:"style,attr"`
+	Transport string   `xml:"transport,attr"`
+	Style     string   `xml:"style,attr"`
 }
 
 type BindingOperation struct {
-	AttrName      string        `xml:"name,attr"`
+	Name      string        `xml:"name,attr"`
 	SoapOperation SoapOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap/ operation"`
 	Input         SoapBodyIO    `xml:"input"`
 	Output        SoapBodyIO    `xml:"output"`
@@ -75,7 +75,7 @@ type BindingOperation struct {
 }
 
 type SoapOperation struct {
-	AttrSoapAction string `xml:"soapAction,attr"`
+	SoapAction string `xml:"soapAction,attr"`
 }
 
 type SoapBodyIO struct {
@@ -83,8 +83,8 @@ type SoapBodyIO struct {
 }
 
 type SoapBody struct {
-	AttrName string `xml:"name,attr,omitempty"`
-	AttrUse  string `xml:"use,attr"`
+	Name string `xml:"name,attr,omitempty"`
+	Use  string `xml:"use,attr"`
 }
 
 type Service struct {
@@ -110,7 +110,7 @@ var packageName = flag.String("p", "", "Package name")
 var outFile = flag.String("o", "", "Output file")
 
 // wsdl -w="C:\Temp\wsdl\CartaoEndpointService.wsdl" -x="C:\Temp\wsdl\CartaoEndpointService_schema1.xsd" -p="main" -o="C:\Temp\service.go"
-// wsdl -w="C:\Temp\wsdl\authendpointservice.wsdl" -x="C:\Temp\wsdl\AuthEndpointService_schema1.xsd" -p="main" -o="C:\Temp\auth_service.go"
+// wsdl -w="C:\Temp\wsdl\authendpointservice.wsdl" -x="C:\Temp\wsdl\AuthEndpointService_schema1.xsd" -p="login" -o="C:\Temp\auth_service.go"
 func main() {
 	flag.Parse()
 
@@ -183,8 +183,9 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 	funcMap := template.FuncMap{
 		// The name "title" is what the function will be called in the template text.
 		"StringHasValue": StringHasValue,
+		"TagDelimiter": TagDelimiter,
 	}
-
+	
 	tmpl, err := template.New("").Funcs(funcMap).Parse(tmplService)
 	if err != nil {
 		exit(err)
@@ -255,7 +256,7 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 				for ii := 0; ii < len(s.ComplexTypes[i].Sequence); ii++ {
 					fi := Field{}
 					fi.Name = exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name)
-					fi.Type = decodeType(s.ComplexTypes[i].Sequence[ii].Type)
+					fi.Type = decodeType(s.ComplexTypes[i].Sequence[ii])
 					fi.XMLName = s.ComplexTypes[i].Sequence[ii].Name
 					t.Fields = append(t.Fields, fi)
 				}
@@ -264,7 +265,7 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 				for ii := 0; ii < len(s.ComplexTypes[i].Content.Extension.Sequence); ii++ {
 					fi := Field{}
 					fi.Name = exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name)
-					fi.Type = decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii].Type)
+					fi.Type = decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii])
 					fi.XMLName = s.ComplexTypes[i].Content.Extension.Sequence[ii].Name
 					t.Fields = append(t.Fields, fi)
 				}
@@ -275,7 +276,7 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 
 	for i := 0; i < len(d.PortType.Operations); i++ {
 		m := Method{}
-		m.Name = d.PortType.Operations[i].Name
+		m.Name = exportableSymbol(d.PortType.Operations[i].Name)
 		// TODO: get correct action in binding area
 		m.Action = ""
 
@@ -353,7 +354,8 @@ func exportableSymbol(s string) string {
 	return s
 }
 
-func decodeType(t string) string {
+func decodeType(e Element) string {
+	t := e.Type
 	if t[0:2] == "xs" {
 		switch t[3:] {
 		case "string":
@@ -365,8 +367,12 @@ func decodeType(t string) string {
 		default:
 			return "nil"
 		}
-	} else if t[0:3] == "tns" {
-		return exportableSymbol(t[4:])
+	} else if t[0:3] == "tns" {	
+		ty := exportableSymbol(t[4:])
+		if e.MaxOccurs == "unbounded" {
+			ty = "[]" + ty
+		}
+		return ty
 	}
 
 	panic("unknown type")
@@ -377,4 +383,8 @@ func StringHasValue(s string) bool {
 		return true
 	}
 	return false
+}
+
+func TagDelimiter() string {
+	return "`"
 }

@@ -2,6 +2,7 @@ package webservice
 
 import (
 	"encoding/xml"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -33,6 +34,13 @@ type SoapBody struct {
 	Content string   `xml:",innerxml"`
 }
 
+type SoapFault struct {
+	XMLName xml.Name `xml:"Fault"`
+	FaultCode string `xml:"faultcode"`
+	FaultString string `xml:"faultstring"`
+	Detail string `xml:"detail"`
+}
+
 func CallService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
 	// cria o soap envelope
 	se := NewSoapEnvelope()
@@ -54,12 +62,13 @@ func CallService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
 
 	// cria um reader para o corpo da requisição
 	br := strings.NewReader(string(bse))
-
+	
 	// cria a requisição
 	req, err := http.NewRequest("POST", url, br)
 	if err != nil {
 		return nil, err
 	}
+	
 
 	// adiciona os cabeçalhos http necessários do soap
 	req.Header.Add("Content-Type", "text/xml; charset=utf-8")
@@ -71,17 +80,26 @@ func CallService(si SoapIn, url string) (sr *SoapEnvelope, err error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	// le o conteudo do retorno
 	bsr, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	// gerar a estrutura de retorno
 	err = xml.Unmarshal(bsr, &sr)
 	if err != nil {
 		return nil, err
+	}
+
+	if resp.StatusCode == 500 {
+		var sf SoapFault
+		err = xml.Unmarshal([]byte(sr.Body.Content), &sf)
+		if err != nil {
+			return nil, errors.New(resp.Status)
+		}
+		return nil, errors.New(sf.FaultString)
 	}
 
 	return sr, nil

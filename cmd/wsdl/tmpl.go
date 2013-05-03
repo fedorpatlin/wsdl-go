@@ -17,20 +17,21 @@ func New{{.ServiceName}}() *{{.ServiceName}}{
 	s := {{.ServiceName}}{}
 	s.Url = "{{.ServiceUrl}}"
 	
-	return s
+	return &s
 }
 {{with $s := .}}
 {{range .Types}}
 type {{.Name}} struct {
-	{{range .Fields}}{{.Name}} {{if StringHasValue .Type}}{{.Type}}{{end}} {{if StringHasValue .XMLName}}'xml:"{{.XMLName}}"'{{end}}
+	XMLNamespace string {{TagDelimiter}}xml:"xmlns,attr"{{TagDelimiter}}
+	{{range .Fields}}{{.Name}} {{if StringHasValue .Type}}{{.Type}}{{end}} {{if StringHasValue .XMLName}}{{TagDelimiter}}xml:"{{.XMLName}}"{{TagDelimiter}}{{end}}
 	{{end}}
 }
 {{end}}
 {{range .Messages}}
 type {{.Name}} struct {
-	XMLName xml.Name        'xml:"http://webservice.auth.app.bsbr.altec.com/ {{.XMLName}}"'
-	{{if .Input}}Action  string          'xml:"-"'{{end}}
-	{{.ParamName}} {{.ParamType}} 'xml:"{{.XMLParamName}}"'
+	XMLName xml.Name        {{TagDelimiter}}xml:"http://webservice.auth.app.bsbr.altec.com/ {{.XMLName}}"{{TagDelimiter}}
+	{{if .Input}}Action  string          {{TagDelimiter}}xml:"-"{{TagDelimiter}}{{end}}
+	{{.ParamName}} {{.ParamType}} {{TagDelimiter}}xml:"{{.XMLParamName}}"{{TagDelimiter}}
 }
 
 {{if .Input}}func (si {{.Name}}) GetAction() string {

@@ -18,8 +18,8 @@ type Element struct {
 	XMLName   xml.Name `xml:"http://www.w3.org/2001/XMLSchema element"`
 	Type      string   `xml:"type,attr"`
 	Nillable  string   `xml:"nillable,attr"`
-	MinOccurs int      `xml:"minOccurs,attr"`
-	MaxOccurs int      `xml:"maxOccurs,attr"`
+	MinOccurs string   `xml:"minOccurs,attr"`
+	MaxOccurs string   `xml:"maxOccurs,attr"`
 	Name      string   `xml:"name,attr"`
 }
 
