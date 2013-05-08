@@ -6,7 +6,7 @@ package {{.PackageName}}
 
 import (
 	"encoding/xml"
-	"code.google.com/p/wsdl-go/webservice"
+	"code.google.com/p/wsdl-go/wsdl"
 )
 	
 type {{.ServiceName}} struct {

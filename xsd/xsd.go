@@ -1,17 +1,18 @@
-package main
+package xsd
 
 import (
 	"encoding/xml"
 )
 
 type Schema struct {
-	XMLName         xml.Name      `xml:"http://www.w3.org/2001/XMLSchema schema"`
-	TNS             string        `xml:"xmlns tns",attr`
-	XS              string        `xml:"xmlns xs,attr"`
-	TargetNamespace string        `xml:"targetNamespace,attr"`
-	Version         string        `xml:"version,attr"`
-	Elements        []Element     `xml:"http://www.w3.org/2001/XMLSchema element"`
-	ComplexTypes    []ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
+	XMLName            xml.Name      `xml:"http://www.w3.org/2001/XMLSchema schema"`
+	TNS                string        `xml:"xmlns tns",attr`
+	XS                 string        `xml:"xmlns xs,attr"`
+	TargetNamespace    string        `xml:"targetNamespace,attr"`
+	ElementFormDefault string        `xml:"elementFormDefault,attr"`
+	Version            string        `xml:"version,attr"`
+	Elements           []Element     `xml:"http://www.w3.org/2001/XMLSchema element"`
+	ComplexTypes       []ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
 }
 
 type Element struct {
@@ -20,6 +21,7 @@ type Element struct {
 	Nillable  string   `xml:"nillable,attr"`
 	MinOccurs string   `xml:"minOccurs,attr"`
 	MaxOccurs string   `xml:"maxOccurs,attr"`
+	Form      string   `xml:"form,attr"`
 	Name      string   `xml:"name,attr"`
 }
 

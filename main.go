@@ -9,112 +9,63 @@ import (
 	"os"
 	"strings"
 	"text/template"
+
+	"code.google.com/p/wsdl-go/wsdl"
+	"code.google.com/p/wsdl-go/xsd"
 )
-
-type Definitions struct {
-	XMLName         xml.Name  `xml:"definitions"`
-	TargetNamespace string    `xml:"targetNamespace,attr"`
-	Name            string    `xml:"name,attr"`
-	Types           Type      `xml:"types"`
-	Messages        []Message `xml:"message"`
-	PortType        PortType  `xml:"portType"`
-	Binding         Binding   `xml:"binding"`
-	Service         Service   `xml:"service"`
-}
-
-type Type struct {
-	Schemas []Schema `xml:"http://www.w3.org/2001/XMLSchema schema"`
-}
-
-type Message struct {
-	Name string `xml:"name,attr"`
-	Part Part   `xml:"part"`
-}
-
-type Part struct {
-	Name    string `xml:"name,attr"`
-	Element string `xml:"element,attr"`
-}
-
-type PortType struct {
-	Name       string              `xml:"name,attr"`
-	Operations []PortTypeOperation `xml:"operation"`
-}
-
-type PortTypeOperation struct {
-	Name   string                   `xml:"name,attr"`
-	Input  PortTypeOperationMessage `xml:"input"`
-	Output PortTypeOperationMessage `xml:"output"`
-	Fault  PortTypeOperationMessage `xml:"fault"`
-}
-
-type PortTypeOperationMessage struct {
-	Name    string `xml:"name,attr,omitempty`
-	Message string `xml:"message,attr"`
-}
-
-type Binding struct {
-	Name    string             `xml:"name,attr"`
-	Type    string             `xml:"type,attr"`
-	SoapBinding SoapBinding        `xml:"binding"`
-	Operations  []BindingOperation `xml:"operation"`
-}
-
-type SoapBinding struct {
-	XMLName       xml.Name `xml:"http://schemas.xmlsoap.org/wsdl/soap/ binding"`
-	Transport string   `xml:"transport,attr"`
-	Style     string   `xml:"style,attr"`
-}
-
-type BindingOperation struct {
-	Name      string        `xml:"name,attr"`
-	SoapOperation SoapOperation `xml:"http://schemas.xmlsoap.org/wsdl/soap/ operation"`
-	Input         SoapBodyIO    `xml:"input"`
-	Output        SoapBodyIO    `xml:"output"`
-	Fault         SoapBody      `xml:"fault>http://schemas.xmlsoap.org/wsdl/soap/ fault"`
-}
-
-type SoapOperation struct {
-	SoapAction string `xml:"soapAction,attr"`
-}
-
-type SoapBodyIO struct {
-	SoapBody SoapBody `xml:"http://schemas.xmlsoap.org/wsdl/soap/ body"`
-}
-
-type SoapBody struct {
-	Name string `xml:"name,attr,omitempty"`
-	Use  string `xml:"use,attr"`
-}
-
-type Service struct {
-	Name string      `xml:"name,attr"`
-	Port ServicePort `xml:"port"`
-}
-
-type ServicePort struct {
-	XMLName xml.Name       `xml:"port"`
-	Name    string         `xml:"name,attr"`
-	Binding string         `xml:"binding,attr"`
-	Address ServiceAddress `xml:"http://schemas.xmlsoap.org/wsdl/soap/ address"`
-}
-
-type ServiceAddress struct {
-	XMLName  xml.Name `xml:"http://schemas.xmlsoap.org/wsdl/soap/ address"`
-	Location string   `xml:"location,attr"`
-}
 
 var wsdlFile = flag.String("w", "", "WSDL file with full path")
 var xsdFile = flag.String("x", "", "XSD file with full path")
 var packageName = flag.String("p", "", "Package name")
 var outFile = flag.String("o", "", "Output file")
 
+type Method struct {
+	Name         string
+	Action       string
+	InputType    string
+	OutputType   string
+	MessageIn    string
+	MessageOut   string
+	ParamInName  string
+	ParamOutName string
+}
+
+type SoapMessage struct {
+	Name         string
+	XMLName      string
+	Action       string
+	ParamName    string
+	XMLParamName string
+	ParamType    string
+	Input        bool
+}
+
+type Field struct {
+	Name    string
+	Type    string
+	XMLName string
+}
+
+type StructType struct {
+	Name   string
+	Fields []Field
+}
+
+var data struct {
+	PackageName string
+	ServiceName string
+	ServiceUrl  string
+	Messages    []SoapMessage
+	Methods     []Method
+	Types       []StructType
+}
+
 // wsdl -w="C:\Temp\wsdl\CartaoEndpointService.wsdl" -x="C:\Temp\wsdl\CartaoEndpointService_schema1.xsd" -p="main" -o="C:\Temp\service.go"
 // wsdl -w="C:\Temp\wsdl\authendpointservice.wsdl" -x="C:\Temp\wsdl\AuthEndpointService_schema1.xsd" -p="login" -o="C:\Temp\auth_service.go"
 func main() {
 	flag.Parse()
 
-	if *wsdlFile == "" || *xsdFile == "" || *packageName == "" || *outFile == "" {
+	if *wsdlFile == "" || *packageName == "" || *outFile == "" {
 		flag.Usage()
 		return
 	}
@@ -130,34 +81,47 @@ func main() {
 		exit(err)
 	}
 
-	var d Definitions
+	var d wsdl.Definitions
 	err = xml.Unmarshal(bw, &d)
 	if err != nil {
 		exit(err)
 	}
 
-	xf, err := os.Open(*xsdFile)
-	if err != nil {
-		exit(err)
-	}
-	defer xf.Close()
+	var s xsd.Schema
 
-	bx, err := ioutil.ReadAll(xf)
-	if err != nil {
-		exit(err)
+	// se foi informado qual o arquivo de schema
+	// o schema pode ser passado em um arquivo separado ou
+	// poder estar dentro do proprio wsdl
+	if *xsdFile != "" {
+		xf, err := os.Open(*xsdFile)
+		if err != nil {
+			exit(err)
+		}
+		defer xf.Close()
+
+		bx, err := ioutil.ReadAll(xf)
+		if err != nil {
+			exit(err)
+		}
+
+		err = xml.Unmarshal(bx, &s)
+		if err != nil {
+			exit(err)
+		}
+	} else {
+		// TODO: na verdade podemos ter mais de um schema
+		s = d.Types.Schemas[0]
 	}
 
-	var s Schema
-	err = xml.Unmarshal(bx, &s)
-	if err != nil {
-		exit(err)
-	}
-
+	// remove o arquivo de saida
 	err = os.Remove(*outFile)
+	// verificar se houve, se houve erro e o erro não for do tipo "não existe"
+	// ignora o erro se retorna o erro em questão
 	if err != nil && !os.IsNotExist(err) {
 		exit(err)
 	}
 
+	// cria o arquivo de saída
 	f, err := os.Create(*outFile)
 	if err != nil {
 		exit(err)
@@ -165,13 +129,13 @@ func main() {
 	defer f.Close()
 
 	buf := bufio.NewWriter(f)
+	defer buf.Flush()
 
 	// create de service file
 	create(&d, &s, buf)
-
-	buf.Flush()
 }
 
+// exit sai da aplicação exibindo o erro se existir
 func exit(err error) {
 	if err != nil {
 		fmt.Println(err.Error())
@@ -179,57 +143,18 @@ func exit(err error) {
 	os.Exit(1)
 }
 
-func create(d *Definitions, s *Schema, b *bufio.Writer) {
+// create cria o arquivo com o serviço a ser consumido
+func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer) {
 	funcMap := template.FuncMap{
-		// The name "title" is what the function will be called in the template text.
 		"StringHasValue": StringHasValue,
-		"TagDelimiter": TagDelimiter,
+		"TagDelimiter":   TagDelimiter,
 	}
-	
+
+	// cria o template
+	// a variavel tmplService está definido no arquivo tmpl.go
 	tmpl, err := template.New("").Funcs(funcMap).Parse(tmplService)
 	if err != nil {
 		exit(err)
-	}
-
-	type Method struct {
-		Name         string
-		Action       string
-		InputType    string
-		OutputType   string
-		MessageIn    string
-		MessageOut   string
-		ParamInName  string
-		ParamOutName string
-	}
-
-	type SoapMessage struct {
-		Name         string
-		XMLName      string
-		Action       string
-		ParamName    string
-		XMLParamName string
-		ParamType    string
-		Input        bool
-	}
-
-	type Field struct {
-		Name    string
-		Type    string
-		XMLName string
-	}
-
-	type StructType struct {
-		Name   string
-		Fields []Field
-	}
-
-	var data struct {
-		PackageName string
-		ServiceName string
-		ServiceUrl  string
-		Messages    []SoapMessage
-		Methods     []Method
-		Types       []StructType
 	}
 
 	data.PackageName = *packageName
@@ -273,8 +198,9 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 			data.Types = append(data.Types, t)
 		}
 	}
-
+	
 	for i := 0; i < len(d.PortType.Operations); i++ {
+		
 		m := Method{}
 		m.Name = exportableSymbol(d.PortType.Operations[i].Name)
 		// TODO: get correct action in binding area
@@ -323,13 +249,15 @@ func create(d *Definitions, s *Schema, b *bufio.Writer) {
 		data.Methods = append(data.Methods, m)
 	}
 
+	// executa o template para geração do arquivo com
+	// o serviço que será consumido
 	err = tmpl.Execute(b, data)
 	if err != nil {
 		exit(err)
 	}
 }
 
-func findElement(s *Schema, t string) *Element {
+func findElement(s *xsd.Schema, t string) *xsd.Element {
 	for i := 0; i < len(s.Elements); i++ {
 		if s.Elements[i].Type == t {
 			return &s.Elements[i]
@@ -339,7 +267,7 @@ func findElement(s *Schema, t string) *Element {
 	return nil
 }
 
-func findComplexType(s *Schema, n string) *ComplexType {
+func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
 	for i := 0; i < len(s.ComplexTypes); i++ {
 		if s.ComplexTypes[i].Name == n {
 			return &s.ComplexTypes[i]
@@ -354,7 +282,7 @@ func exportableSymbol(s string) string {
 	return s
 }
 
-func decodeType(e Element) string {
+func decodeType(e xsd.Element) string {
 	t := e.Type
 	if t[0:2] == "xs" {
 		switch t[3:] {
@@ -367,7 +295,7 @@ func decodeType(e Element) string {
 		default:
 			return "nil"
 		}
-	} else if t[0:3] == "tns" {	
+	} else if t[0:3] == "tns" {
 		ty := exportableSymbol(t[4:])
 		if e.MaxOccurs == "unbounded" {
 			ty = "[]" + ty

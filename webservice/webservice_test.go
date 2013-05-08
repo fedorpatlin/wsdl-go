@@ -78,7 +78,7 @@ func (s AuthEndpointService) ObterUsuarios(param UsuarioParamDTO) (r *UsuarioRes
 	si.Param = param
 
 	// chama o serviço apontando para determina url
-	sr, err := callService(si, s.Url)
+	sr, err := CallService(si, s.Url)
 	if err != nil {
 		return nil, err
 	}
