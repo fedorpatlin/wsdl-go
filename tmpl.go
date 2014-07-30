@@ -46,11 +46,11 @@ type {{.Name}} struct {
 }{{end}}
 {{end}}{{range .Methods}}
 func (s *{{$s.ServiceName}}) {{.Name}}({{if .HasParams}}p{{end}} {{.InputType}}) (r *{{.OutputType}}, err error) {
-	si := {{.MessageIn}}{}
+	{{if .HasParams}}si := {{.MessageIn}}{}
 	si.Action = "{{.Action}}"
-	si.{{.ParamInName}} = p
+	si.{{.ParamInName}} = p{{end}}
 
-	sr, err := webservice.CallService(si, s.Url)
+	sr, err := webservice.CallService({{if .HasParams}}si{{else}}nil{{end}}, s.Url)
 	if err != nil {
 		return nil, err
 	}
