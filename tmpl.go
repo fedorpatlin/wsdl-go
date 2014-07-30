@@ -5,9 +5,14 @@ var (
 package {{.PackageName}}
 
 import (
+	ws "code.google.com/p/wsdl-go/webservice"
 	"encoding/xml"
-	"code.google.com/p/wsdl-go/wsdl"
 )
+
+type Entry struct {
+	Key string {{TagDelimiter}}xml:"key"{{TagDelimiter}}
+	Value string {{TagDelimiter}}xml:"value"{{TagDelimiter}}
+}
 	
 type {{.ServiceName}} struct {
 	Url string
@@ -31,14 +36,16 @@ type {{.Name}} struct {
 type {{.Name}} struct {
 	XMLName xml.Name        {{TagDelimiter}}xml:"http://webservice.auth.app.bsbr.altec.com/ {{.XMLName}}"{{TagDelimiter}}
 	{{if .Input}}Action  string          {{TagDelimiter}}xml:"-"{{TagDelimiter}}{{end}}
+	{{range .Params}}
 	{{.ParamName}} {{.ParamType}} {{TagDelimiter}}xml:"{{.XMLParamName}}"{{TagDelimiter}}
+	{{end}}
 }
 
 {{if .Input}}func (si {{.Name}}) GetAction() string {
 	return si.Action
 }{{end}}
 {{end}}{{range .Methods}}
-func (s *{{$s.ServiceName}}) {{.Name}}(p {{.InputType}}) (r *{{.OutputType}}, err error) {
+func (s *{{$s.ServiceName}}) {{.Name}}({{if .HasParams}}p{{end}} {{.InputType}}) (r *{{.OutputType}}, err error) {
 	si := {{.MessageIn}}{}
 	si.Action = "{{.Action}}"
 	si.{{.ParamInName}} = p

@@ -22,6 +22,7 @@ var outFile = flag.String("o", "", "Output file")
 type Method struct {
 	Name         string
 	Action       string
+	HasParams    bool
 	InputType    string
 	OutputType   string
 	MessageIn    string
@@ -30,10 +31,19 @@ type Method struct {
 	ParamOutName string
 }
 
-type SoapMessage struct {
+type Message struct {
 	Name         string
 	XMLName      string
 	Action       string
+	Params       []MessageParamIn
+
+	ParamName    string
+	XMLParamName string
+	ParamType    string
+	Input        bool
+}
+
+type MessageParamIn struct {
 	ParamName    string
 	XMLParamName string
 	ParamType    string
@@ -51,14 +61,16 @@ type StructType struct {
 	Fields []Field
 }
 
-var data struct {
+type TemplateData struct {
 	PackageName string
 	ServiceName string
 	ServiceUrl  string
-	Messages    []SoapMessage
+	Messages    []Message
 	Methods     []Method
 	Types       []StructType
 }
+
+var data TemplateData
 
 // wsdl -w="C:\Temp\wsdl\CartaoEndpointService.wsdl" -x="C:\Temp\wsdl\CartaoEndpointService_schema1.xsd" -p="main" -o="C:\Temp\service.go"
 // wsdl -w="C:\Temp\wsdl\authendpointservice.wsdl" -x="C:\Temp\wsdl\AuthEndpointService_schema1.xsd" -p="login" -o="C:\Temp\auth_service.go"
@@ -70,22 +82,8 @@ func main() {
 		return
 	}
 
-	wf, err := os.Open(*wsdlFile)
-	if err != nil {
-		exit(err)
-	}
-	defer wf.Close()
-
-	bw, err := ioutil.ReadAll(wf)
-	if err != nil {
-		exit(err)
-	}
-
 	var d wsdl.Definitions
-	err = xml.Unmarshal(bw, &d)
-	if err != nil {
-		exit(err)
-	}
+	unmarshal(*wsdlFile, &d)
 
 	var s xsd.Schema
 
@@ -93,28 +91,41 @@ func main() {
 	// o schema pode ser passado em um arquivo separado ou
 	// poder estar dentro do proprio wsdl
 	if *xsdFile != "" {
-		xf, err := os.Open(*xsdFile)
-		if err != nil {
-			exit(err)
-		}
-		defer xf.Close()
-
-		bx, err := ioutil.ReadAll(xf)
-		if err != nil {
-			exit(err)
-		}
-
-		err = xml.Unmarshal(bx, &s)
-		if err != nil {
-			exit(err)
-		}
+		unmarshal(*xsdFile, &s)
 	} else {
 		// TODO: na verdade podemos ter mais de um schema
 		s = d.Types.Schemas[0]
 	}
 
+	buf, f := createOut(*outFile)
+	defer buf.Flush()
+	defer f.Close()
+
+	// create de service file
+	create(&d, &s, buf, f)
+}
+
+func unmarshal(n string, i interface{}) {
+	f, err := os.Open(n)
+	if err != nil {
+		exit(err)
+	}
+	defer f.Close()
+
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		exit(err)
+	}
+
+	err = xml.Unmarshal(b, i)
+	if err != nil {
+		exit(err)
+	}
+}
+
+func createOut(n string) (*bufio.Writer, *os.File) {
 	// remove o arquivo de saida
-	err = os.Remove(*outFile)
+	err := os.Remove(n)
 	// verificar se houve, se houve erro e o erro não for do tipo "não existe"
 	// ignora o erro se retorna o erro em questão
 	if err != nil && !os.IsNotExist(err) {
@@ -122,17 +133,12 @@ func main() {
 	}
 
 	// cria o arquivo de saída
-	f, err := os.Create(*outFile)
+	f, err := os.Create(n)
 	if err != nil {
 		exit(err)
 	}
-	defer f.Close()
-
-	buf := bufio.NewWriter(f)
-	defer buf.Flush()
-
-	// create de service file
-	create(&d, &s, buf)
+	
+	return bufio.NewWriter(f), f
 }
 
 // exit sai da aplicação exibindo o erro se existir
@@ -144,14 +150,13 @@ func exit(err error) {
 }
 
 // create cria o arquivo com o serviço a ser consumido
-func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer) {
+func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) {
 	funcMap := template.FuncMap{
 		"StringHasValue": StringHasValue,
 		"TagDelimiter":   TagDelimiter,
 	}
 
-	// cria o template
-	// a variavel tmplService está definido no arquivo tmpl.go
+	// create the template
 	tmpl, err := template.New("").Funcs(funcMap).Parse(tmplService)
 	if err != nil {
 		exit(err)
@@ -161,7 +166,7 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer) {
 	data.ServiceName = d.Service.Name
 	data.ServiceUrl = d.Service.Port.Address.Location
 	data.Methods = make([]Method, 0)
-	data.Messages = make([]SoapMessage, 0)
+	data.Messages = make([]Message, 0)
 
 	for i := 0; i < len(s.ComplexTypes); i++ {
 		// check if complex type not in elements
@@ -174,24 +179,28 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer) {
 		}
 		var t StructType
 		if !found {
-			t = StructType{}
-			t.Name = exportableSymbol(s.ComplexTypes[i].Name)
-			t.Fields = make([]Field, 0)
+			t = StructType{
+				Name: exportableSymbol(s.ComplexTypes[i].Name),
+				Fields: make([]Field, 0),
+			}
+
 			if s.ComplexTypes[i].Content == nil {
 				for ii := 0; ii < len(s.ComplexTypes[i].Sequence); ii++ {
-					fi := Field{}
-					fi.Name = exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name)
-					fi.Type = decodeType(s.ComplexTypes[i].Sequence[ii])
-					fi.XMLName = s.ComplexTypes[i].Sequence[ii].Name
+					fi := Field{
+						Name: exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name),
+						Type: decodeType(s.ComplexTypes[i].Sequence[ii]),
+						XMLName: s.ComplexTypes[i].Sequence[ii].Name,
+					}
 					t.Fields = append(t.Fields, fi)
 				}
 			} else {
 				t.Fields = append(t.Fields, Field{Name: exportableSymbol(s.ComplexTypes[i].Content.Extension.Base[4:])})
 				for ii := 0; ii < len(s.ComplexTypes[i].Content.Extension.Sequence); ii++ {
-					fi := Field{}
-					fi.Name = exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name)
-					fi.Type = decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii])
-					fi.XMLName = s.ComplexTypes[i].Content.Extension.Sequence[ii].Name
+					fi := Field{
+						Name: exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name),						
+						Type: decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii]),
+						XMLName: s.ComplexTypes[i].Content.Extension.Sequence[ii].Name,
+					}
 					t.Fields = append(t.Fields, fi)
 				}
 			}
@@ -205,61 +214,112 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer) {
 		m.Name = exportableSymbol(d.PortType.Operations[i].Name)
 		// TODO: get correct action in binding area
 		m.Action = ""
-
+		
 		// find input parameter type
 		e := findElement(s, d.PortType.Operations[i].Input.Message)
-		c := findComplexType(s, e.Name)
+		
+		var c *xsd.ComplexType
+		
+		if e.ComplexTypes == nil {
+			c = findComplexType(s, e.Name)
+		} else {
+			c = e.ComplexTypes
+		}
+		
+		message := Message{}
+		if c.Name != "" {
+			message.Name = exportableSymbol(c.Name)
+			message.XMLName = c.Name
+		} else {
+			message.Name = exportableSymbol(e.Name)
+			message.XMLName = e.Name
+		}
+		
+		if len(c.Sequence) > 0 {
+			si := strings.Index(c.Sequence[0].Type, ":")
+			for _, v := range c.Sequence {
+				messageParam := MessageParamIn{}
+				messageParam.ParamName = exportableSymbol(v.Name)
+				messageParam.XMLParamName = v.Name
+				messageParam.ParamType = exportableSymbol(v.Type[si+1:])
+				messageParam.Input = true
+				
+				message.Params = append(message.Params, messageParam)
+			}
+			data.Messages = append(data.Messages, message)
 
-		si := strings.Index(c.Sequence[0].Type, ":")
-
-		message := SoapMessage{}
-		message.Name = exportableSymbol(c.Name)
-		message.XMLName = c.Name
-		message.ParamName = exportableSymbol(c.Sequence[0].Name)
-		message.XMLParamName = c.Sequence[0].Name
-		message.ParamType = exportableSymbol(c.Sequence[0].Type[si+1:])
-		message.Input = true
-
-		data.Messages = append(data.Messages, message)
-
-		m.InputType = exportableSymbol(c.Sequence[0].Type[si+1:])
-		m.MessageIn = message.Name
-		m.ParamInName = message.ParamName
+			m.InputType = exportableSymbol(c.Sequence[0].Type[si+1:])
+			m.MessageIn = message.Name
+			m.ParamInName = message.ParamName
+			m.HasParams = true
+		} else {
+			m.HasParams = false
+		}		
 
 		// find output parameter type
 		e = findElement(s, d.PortType.Operations[i].Output.Message)
-		c = findComplexType(s, e.Name)
 
-		si = strings.Index(c.Sequence[0].Type, ":")
+		if e.ComplexTypes == nil {
+			c = findComplexType(s, e.Name)
+		} else {
+			c = e.ComplexTypes
+		}
 
-		message = SoapMessage{}
-		message.Name = exportableSymbol(c.Name)
-		message.XMLName = c.Name
-		message.ParamName = exportableSymbol(c.Sequence[0].Name)
+		si := strings.Index(c.Sequence[0].Type, ":")
+
+		message = Message{}
+		
+		//message.Name = exportableSymbol(c.Name)
+		//message.XMLName = c.Name
+		
+		if c.Name != "" {
+			message.Name = exportableSymbol(c.Name)
+			message.XMLName = c.Name
+		} else {
+			message.Name = exportableSymbol(e.Name)
+			message.XMLName = e.Name
+		}
+		
+		for _, v := range c.Sequence {
+			messageParam := MessageParamIn{}
+			messageParam.ParamName = exportableSymbol(v.Name)
+			messageParam.XMLParamName = v.Name
+			messageParam.ParamType = exportableSymbol(v.Type[si+1:])
+			messageParam.Input = false
+			
+			message.Params = append(message.Params, messageParam)
+		}
+
+		/*message.ParamName = exportableSymbol(c.Sequence[0].Name)
 		message.XMLParamName = c.Sequence[0].Name
 		message.ParamType = exportableSymbol(c.Sequence[0].Type[si+1:])
-		message.Input = false
+		message.Input = false*/
 
 		data.Messages = append(data.Messages, message)
 
 		m.OutputType = exportableSymbol(c.Sequence[0].Type[si+1:])
 		m.MessageOut = message.Name
-		m.ParamOutName = message.ParamName
+		m.ParamOutName = exportableSymbol(c.Sequence[0].Name)
 
 		data.Methods = append(data.Methods, m)
 	}
-
+	
 	// executa o template para geração do arquivo com
 	// o serviço que será consumido
-	err = tmpl.Execute(b, data)
+	err = tmpl.Execute(file, data)
 	if err != nil {
 		exit(err)
 	}
 }
 
 func findElement(s *xsd.Schema, t string) *xsd.Element {
+	if t[0:3] == "tns" {
+		t = t[4:]
+	}	
+	t = strings.Replace(t, "SoapIn", "", -1)
+	t = strings.Replace(t, "SoapOut", "Response", -1)
 	for i := 0; i < len(s.Elements); i++ {
-		if s.Elements[i].Type == t {
+		if s.Elements[i].Type == t || s.Elements[i].Name == t {			
 			return &s.Elements[i]
 		}
 	}
@@ -268,6 +328,11 @@ func findElement(s *xsd.Schema, t string) *xsd.Element {
 }
 
 func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
+	if n[0:3] == "tns" {
+		n = n[4:]
+	}	
+	n = strings.Replace(n, "SoapIn", "", -1)
+	n = strings.Replace(n, "SoapOut", "Response", -1)	
 	for i := 0; i < len(s.ComplexTypes); i++ {
 		if s.ComplexTypes[i].Name == n {
 			return &s.ComplexTypes[i]
@@ -278,14 +343,28 @@ func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
 }
 
 func exportableSymbol(s string) string {
-	s = strings.ToUpper(s[0:1]) + s[1:]
-	return s
+	return strings.ToUpper(s[0:1]) + s[1:]
 }
 
 func decodeType(e xsd.Element) string {
 	t := e.Type
+	// TODO(dops): tratar
+	if t == "" && e.Name == "entry" {
+		return "[]Entry"
+	}
 	if t[0:2] == "xs" {
 		switch t[3:] {
+		case "string":
+			return "string"
+		case "boolean":
+			return "bool"
+		case "decimal", "double":
+			return "float64"
+		default:
+			return "nil"
+		}
+	} else if t[0:2] == "s:" {
+		switch t[2:] {
 		case "string":
 			return "string"
 		case "boolean":

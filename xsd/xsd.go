@@ -23,6 +23,7 @@ type Element struct {
 	MaxOccurs string   `xml:"maxOccurs,attr"`
 	Form      string   `xml:"form,attr"`
 	Name      string   `xml:"name,attr"`
+	ComplexTypes       *ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
 }
 
 type ComplexType struct {
