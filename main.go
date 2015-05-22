@@ -32,10 +32,10 @@ type Method struct {
 }
 
 type Message struct {
-	Name         string
-	XMLName      string
-	Action       string
-	Params       []MessageParamIn
+	Name    string
+	XMLName string
+	Action  string
+	Params  []MessageParamIn
 
 	ParamName    string
 	XMLParamName string
@@ -137,7 +137,7 @@ func createOut(n string) (*bufio.Writer, *os.File) {
 	if err != nil {
 		exit(err)
 	}
-	
+
 	return bufio.NewWriter(f), f
 }
 
@@ -180,25 +180,26 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 		var t StructType
 		if !found {
 			t = StructType{
-				Name: exportableSymbol(s.ComplexTypes[i].Name),
+				Name:   exportableSymbol(s.ComplexTypes[i].Name),
 				Fields: make([]Field, 0),
 			}
 
 			if s.ComplexTypes[i].Content == nil {
 				for ii := 0; ii < len(s.ComplexTypes[i].Sequence); ii++ {
 					fi := Field{
-						Name: exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name),
-						Type: decodeType(s.ComplexTypes[i].Sequence[ii]),
+						Name:    exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name),
+						Type:    decodeType(s.ComplexTypes[i].Sequence[ii]),
 						XMLName: s.ComplexTypes[i].Sequence[ii].Name,
 					}
 					t.Fields = append(t.Fields, fi)
 				}
 			} else {
-				t.Fields = append(t.Fields, Field{Name: exportableSymbol(s.ComplexTypes[i].Content.Extension.Base[4:])})
+				_, b := extractNamespace(s.ComplexTypes[i].Content.Extension.Base)
+				t.Fields = append(t.Fields, Field{Name: exportableSymbol(b)})
 				for ii := 0; ii < len(s.ComplexTypes[i].Content.Extension.Sequence); ii++ {
 					fi := Field{
-						Name: exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name),						
-						Type: decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii]),
+						Name:    exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name),
+						Type:    decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii]),
 						XMLName: s.ComplexTypes[i].Content.Extension.Sequence[ii].Name,
 					}
 					t.Fields = append(t.Fields, fi)
@@ -207,27 +208,25 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 			data.Types = append(data.Types, t)
 		}
 	}
-	
+
 	for i := 0; i < len(d.PortType.Operations); i++ {
-		
+
 		m := Method{}
 		m.Name = exportableSymbol(d.PortType.Operations[i].Name)
 		// TODO: get correct action in binding area
 		m.Action = ""
-		
+
 		// find input parameter type
 		e := findElement(s, d.PortType.Operations[i].Input.Message, d.Messages)
 		fmt.Printf("find elements message: %s\n", d.PortType.Operations[i].Input.Message)
 		var c *xsd.ComplexType
-		if e == nil {
-			panic( "nil in elements ")
-		}
+
 		if e.ComplexTypes == nil {
 			c = findComplexType(s, e.Name)
 		} else {
 			c = e.ComplexTypes
 		}
-		
+
 		message := Message{}
 		if c.Name != "" {
 			message.Name = exportableSymbol(c.Name)
@@ -236,27 +235,28 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 			message.Name = exportableSymbol(e.Name)
 			message.XMLName = e.Name
 		}
-		
+
 		if len(c.Sequence) > 0 {
-			si := strings.Index(c.Sequence[0].Type, ":")
+			
 			for _, v := range c.Sequence {
 				messageParam := MessageParamIn{}
 				messageParam.ParamName = exportableSymbol(v.Name)
 				messageParam.XMLParamName = v.Name
-				messageParam.ParamType = exportableSymbol(v.Type[si+1:])
+				_, t := extractNamespace(v.Type)
+				messageParam.ParamType = exportableSymbol(t)
 				messageParam.Input = true
-				
+
 				message.Params = append(message.Params, messageParam)
 			}
 			data.Messages = append(data.Messages, message)
-
-			m.InputType = exportableSymbol(c.Sequence[0].Type[si+1:])
+			_, st := extractNamespace(c.Sequence[0].Type)
+			m.InputType = exportableSymbol(st)
 			m.MessageIn = message.Name
 			m.ParamInName = message.ParamName
 			m.HasParams = true
 		} else {
 			m.HasParams = false
-		}		
+		}
 
 		// find output parameter type
 		e = findElement(s, d.PortType.Operations[i].Output.Message, d.Messages)
@@ -267,13 +267,12 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 			c = e.ComplexTypes
 		}
 
-		si := strings.Index(c.Sequence[0].Type, ":")
 
 		message = Message{}
-		
+
 		//message.Name = exportableSymbol(c.Name)
 		//message.XMLName = c.Name
-		
+
 		if c.Name != "" {
 			message.Name = exportableSymbol(c.Name)
 			message.XMLName = c.Name
@@ -281,14 +280,15 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 			message.Name = exportableSymbol(e.Name)
 			message.XMLName = e.Name
 		}
-		
+
 		for _, v := range c.Sequence {
 			messageParam := MessageParamIn{}
 			messageParam.ParamName = exportableSymbol(v.Name)
 			messageParam.XMLParamName = v.Name
-			messageParam.ParamType = exportableSymbol(v.Type[si+1:])
+			_, t := extractNamespace(v.Type)
+			messageParam.ParamType = exportableSymbol(t)
 			messageParam.Input = false
-			
+
 			message.Params = append(message.Params, messageParam)
 		}
 
@@ -298,14 +298,14 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 		message.Input = false*/
 
 		data.Messages = append(data.Messages, message)
-
-		m.OutputType = exportableSymbol(c.Sequence[0].Type[si+1:])
+		_, st := extractNamespace(c.Sequence[0].Type)
+		m.OutputType = exportableSymbol(st)
 		m.MessageOut = message.Name
 		m.ParamOutName = exportableSymbol(c.Sequence[0].Name)
 
 		data.Methods = append(data.Methods, m)
 	}
-	
+
 	// executa o template para geração do arquivo com
 	// o serviço que será consumido
 	err = tmpl.Execute(file, data)
@@ -315,24 +315,20 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 }
 
 func findElement(s *xsd.Schema, t string, msg []wsdl.Message) *xsd.Element {
-	ts:=strings.Split(t,":")
-	t=ts[len(ts)-1]
-//	if t[0:3] == "tns" {
-//		t = t[4:]
-//	}	
+	_ ,t = extractNamespace(t)
+
 	t = strings.Replace(t, "SoapIn", "", -1)
 	t = strings.Replace(t, "SoapOut", "Response", -1)
-	
+
 	for i := 0; i < len(s.Elements); i++ {
-		fmt.Printf("DEBUG: findElement: t=%s, %s, %s\n", t, s.Elements[i].Type, s.Elements[i].Name)
-		if s.Elements[i].Type == t || s.Elements[i].Name == t {			
+		if s.Elements[i].Type == t || s.Elements[i].Name == t {
 			return &s.Elements[i]
 		}
 	}
-	for _,m := range(msg){
+	for _, m := range msg {
 		if m.Name == t {
-			ps := strings.Split(m.Part.Element,":")
-			
+			ps := strings.Split(m.Part.Element, ":")
+
 			return findElement(s, ps[len(ps)-1], msg)
 		}
 	}
@@ -340,11 +336,9 @@ func findElement(s *xsd.Schema, t string, msg []wsdl.Message) *xsd.Element {
 }
 
 func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
-	if n[0:3] == "tns" {
-		n = n[4:]
-	}	
+	_, n = extractNamespace(n)
 	n = strings.Replace(n, "SoapIn", "", -1)
-	n = strings.Replace(n, "SoapOut", "Response", -1)	
+	n = strings.Replace(n, "SoapOut", "Response", -1)
 	for i := 0; i < len(s.ComplexTypes); i++ {
 		if s.ComplexTypes[i].Name == n {
 			return &s.ComplexTypes[i]
@@ -355,17 +349,34 @@ func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
 }
 
 func exportableSymbol(s string) string {
+	if strings.Contains(s,":"){
+		panic(s)
+	}
+	fmt.Printf("DEBUG: exportableSymbol %s\n", s)
 	return strings.ToUpper(s[0:1]) + s[1:]
+}
+
+func extractNamespace(elt string) (ns, e string) {
+	if !strings.Contains(elt, ":") {
+		ns = ""
+		e = elt
+		return
+	}
+	s := strings.Split(elt, ":")
+	ns = s[0]
+	e = s[len(s)-1]
+	return
 }
 
 func decodeType(e xsd.Element) string {
 	t := e.Type
+	ns, t := extractNamespace(t)
 	// TODO(dops): tratar
-	if t == "" && e.Name == "entry" {
+	if ns == "" && e.Name == "entry" {
 		return "[]Entry"
 	}
-	if t[0:2] == "xs" {
-		switch t[3:] {
+	if ns == "xs" || ns == "xsd" {
+		switch t {
 		case "string":
 			return "string"
 		case "boolean":
@@ -375,8 +386,8 @@ func decodeType(e xsd.Element) string {
 		default:
 			return "nil"
 		}
-	} else if t[0:2] == "s:" {
-		switch t[2:] {
+	} else if ns == "s" {
+		switch t {
 		case "string":
 			return "string"
 		case "boolean":
@@ -386,17 +397,16 @@ func decodeType(e xsd.Element) string {
 		default:
 			return "nil"
 		}
-//	} else if t[0:3] == "tns" {
+		//	} else if t[0:3] == "tns" {
 	} else {
-		ts:=strings.Split(t,":")
-		ty := exportableSymbol(ts[len(ts)-1])
+
+		ty := exportableSymbol(t)
 		if e.MaxOccurs == "unbounded" {
 			ty = "[]" + ty
 		}
-		fmt.Printf("%s\n", ty)
+		fmt.Printf("%s:%s\n", ns, ty)
 		return ty
 	}
-	fmt.Printf("%s\n",t)
 	panic("unknown type")
 }
 
