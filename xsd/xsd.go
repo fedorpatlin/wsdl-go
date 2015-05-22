@@ -13,6 +13,7 @@ type Schema struct {
 	Version            string        `xml:"version,attr"`
 	Elements           []Element     `xml:"http://www.w3.org/2001/XMLSchema element"`
 	ComplexTypes       []ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
+	SimpleTypes []SimpleType `xml:http://www.w3.org/2001/XMLSchema simpleType`
 }
 
 type Element struct {
@@ -24,6 +25,7 @@ type Element struct {
 	Form      string   `xml:"form,attr"`
 	Name      string   `xml:"name,attr"`
 	ComplexTypes       *ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
+	
 }
 
 type ComplexType struct {
@@ -49,4 +51,37 @@ type Import struct {
 	XMLName        xml.Name `xml:"http://www.w3.org/2001/XMLSchema import"`
 	SchemaLocation string   `xml:"schemaLocation,attr"`
 	Namespace      string   `xml:"namespace,attr"`
+}
+
+type SimpleType struct {
+	Name     string          `xml:"name,attr"`
+	Sequence *Restriction `xml:"restriction"`
+}
+
+type Sequence struct {
+	Elements []*Element `xml:"http://www.w3.org/2001/XMLSchema element"`
+}
+
+type Restriction struct {
+	Base         string           `xml:"base,attr"`
+	Pattern      *Pattern      `xml:"http://www.w3.org/2001/XMLSchema pattern"`
+	Enumeration  []Enumeration  `xml:"enumeration"`
+	MinInclusive *MinInclusive `xml:"http://www.w3.org/2001/XMLSchema minInclusive"`
+	MaxInclusive *MaxInclusive `xml:"http://www.w3.org/2001/XMLSchema maxInclusive"`
+}
+
+type Enumeration struct {
+	Value string `xml:"value,attr"`
+}
+
+type Pattern struct {
+	Value string `xml:"value,attr"`
+}
+
+type MinInclusive struct {
+	Value string `xml:"value,attr"`
+}
+
+type MaxInclusive struct {
+	Value string `xml:"value,attr"`
 }
