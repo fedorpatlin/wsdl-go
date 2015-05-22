@@ -13,19 +13,18 @@ type Schema struct {
 	Version            string        `xml:"version,attr"`
 	Elements           []Element     `xml:"http://www.w3.org/2001/XMLSchema element"`
 	ComplexTypes       []ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
-	SimpleTypes []SimpleType `xml:http://www.w3.org/2001/XMLSchema simpleType`
+	SimpleTypes        []SimpleType  `xml:http://www.w3.org/2001/XMLSchema simpleType`
 }
 
 type Element struct {
-	XMLName   xml.Name `xml:"http://www.w3.org/2001/XMLSchema element"`
-	Type      string   `xml:"type,attr"`
-	Nillable  string   `xml:"nillable,attr"`
-	MinOccurs string   `xml:"minOccurs,attr"`
-	MaxOccurs string   `xml:"maxOccurs,attr"`
-	Form      string   `xml:"form,attr"`
-	Name      string   `xml:"name,attr"`
-	ComplexTypes       *ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
-	
+	XMLName      xml.Name     `xml:"http://www.w3.org/2001/XMLSchema element"`
+	Type         string       `xml:"type,attr"`
+	Nillable     string       `xml:"nillable,attr"`
+	MinOccurs    string       `xml:"minOccurs,attr"`
+	MaxOccurs    string       `xml:"maxOccurs,attr"`
+	Form         string       `xml:"form,attr"`
+	Name         string       `xml:"name,attr"`
+	ComplexTypes *ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
 }
 
 type ComplexType struct {
@@ -54,7 +53,7 @@ type Import struct {
 }
 
 type SimpleType struct {
-	Name     string          `xml:"name,attr"`
+	Name     string       `xml:"name,attr"`
 	Sequence *Restriction `xml:"restriction"`
 }
 
@@ -63,9 +62,9 @@ type Sequence struct {
 }
 
 type Restriction struct {
-	Base         string           `xml:"base,attr"`
+	Base         string        `xml:"base,attr"`
 	Pattern      *Pattern      `xml:"http://www.w3.org/2001/XMLSchema pattern"`
-	Enumeration  []Enumeration  `xml:"enumeration"`
+	Enumeration  []Enumeration `xml:"enumeration"`
 	MinInclusive *MinInclusive `xml:"http://www.w3.org/2001/XMLSchema minInclusive"`
 	MaxInclusive *MaxInclusive `xml:"http://www.w3.org/2001/XMLSchema maxInclusive"`
 }
