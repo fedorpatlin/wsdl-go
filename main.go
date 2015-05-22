@@ -216,10 +216,12 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 		m.Action = ""
 		
 		// find input parameter type
-		e := findElement(s, d.PortType.Operations[i].Input.Message)
-		
+		e := findElement(s, d.PortType.Operations[i].Input.Message, d.Messages)
+		fmt.Printf("find elements message: %s\n", d.PortType.Operations[i].Input.Message)
 		var c *xsd.ComplexType
-		
+		if e == nil {
+			panic( "nil in elements ")
+		}
 		if e.ComplexTypes == nil {
 			c = findComplexType(s, e.Name)
 		} else {
@@ -257,7 +259,7 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 		}		
 
 		// find output parameter type
-		e = findElement(s, d.PortType.Operations[i].Output.Message)
+		e = findElement(s, d.PortType.Operations[i].Output.Message, d.Messages)
 
 		if e.ComplexTypes == nil {
 			c = findComplexType(s, e.Name)
@@ -312,18 +314,28 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	}
 }
 
-func findElement(s *xsd.Schema, t string) *xsd.Element {
-	if t[0:3] == "tns" {
-		t = t[4:]
-	}	
+func findElement(s *xsd.Schema, t string, msg []wsdl.Message) *xsd.Element {
+	ts:=strings.Split(t,":")
+	t=ts[len(ts)-1]
+//	if t[0:3] == "tns" {
+//		t = t[4:]
+//	}	
 	t = strings.Replace(t, "SoapIn", "", -1)
 	t = strings.Replace(t, "SoapOut", "Response", -1)
+	
 	for i := 0; i < len(s.Elements); i++ {
+		fmt.Printf("DEBUG: findElement: t=%s, %s, %s\n", t, s.Elements[i].Type, s.Elements[i].Name)
 		if s.Elements[i].Type == t || s.Elements[i].Name == t {			
 			return &s.Elements[i]
 		}
 	}
-
+	for _,m := range(msg){
+		if m.Name == t {
+			ps := strings.Split(m.Part.Element,":")
+			
+			return findElement(s, ps[len(ps)-1], msg)
+		}
+	}
 	return nil
 }
 
@@ -374,14 +386,17 @@ func decodeType(e xsd.Element) string {
 		default:
 			return "nil"
 		}
-	} else if t[0:3] == "tns" {
-		ty := exportableSymbol(t[4:])
+//	} else if t[0:3] == "tns" {
+	} else {
+		ts:=strings.Split(t,":")
+		ty := exportableSymbol(ts[len(ts)-1])
 		if e.MaxOccurs == "unbounded" {
 			ty = "[]" + ty
 		}
+		fmt.Printf("%s\n", ty)
 		return ty
 	}
-
+	fmt.Printf("%s\n",t)
 	panic("unknown type")
 }
 
