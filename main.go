@@ -5,13 +5,13 @@ import (
 	"encoding/xml"
 	"flag"
 	"fmt"
+	"github.com/fedorpatlin/wsdl-go/wsdl"
+	"github.com/fedorpatlin/wsdl-go/xsd"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"text/template"
-
-	"code.google.com/p/wsdl-go/wsdl"
-	"code.google.com/p/wsdl-go/xsd"
 )
 
 var wsdlFile = flag.String("w", "", "WSDL file with full path")
@@ -33,7 +33,7 @@ type Method struct {
 
 type Message struct {
 	Name    string
-	XMLName string
+	XMLName xml.Name
 	Action  string
 	Params  []MessageParamIn
 
@@ -50,15 +50,16 @@ type MessageParamIn struct {
 	Input        bool
 }
 
-type Field struct {
-	Name    string
-	Type    string
-	XMLName string
+type StructType struct {
+	XMLName xml.Name
+	Fields []Field
 }
 
-type StructType struct {
-	Name   string
-	Fields []Field
+type Field struct {
+	XMLName xml.Name
+	Name    string
+	Type	string
+	Ns	string
 }
 
 type TemplateData struct {
@@ -166,145 +167,104 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	data.ServiceName = d.Service.Name
 	data.ServiceUrl = d.Service.Port.Address.Location
 	data.Methods = make([]Method, 0)
-	data.Messages = make([]Message, 0)
+	//data.Messages = make([]Message, 0)
+	data.Types = createStructsType(d.Types.Schemas)
+//	data.Messages = createStructsMessages(d)
+	
+//	for _, op := range d.PortType.Operations {
 
-	for i := 0; i < len(s.ComplexTypes); i++ {
-		// check if complex type not in elements
-		found := false
-		for j := 0; j < len(s.Elements); j++ {
-			if s.ComplexTypes[i].Name == s.Elements[j].Name {
-				found = true
-				break
-			}
-		}
-		var t StructType
-		if !found {
-			t = StructType{
-				Name:   exportableSymbol(s.ComplexTypes[i].Name),
-				Fields: make([]Field, 0),
-			}
+//		m := Method{}
+//		m.Name = exportableSymbol(op.Name)
+//		// TODO: get correct action in binding area
+//		m.Action = op.Name
+//		// find input parameter type
+//		e := findElement(s, op.Input.Message, d.Messages)
+//		//fmt.Printf("DEBUG find elements message: %s\n", d.PortType.Operations[i].Input.Message)
+//		var c *xsd.ComplexType
 
-			if s.ComplexTypes[i].Content == nil {
-				for ii := 0; ii < len(s.ComplexTypes[i].Sequence); ii++ {
-					fi := Field{
-						Name:    exportableSymbol(s.ComplexTypes[i].Sequence[ii].Name),
-						Type:    decodeType(s.ComplexTypes[i].Sequence[ii]),
-						XMLName: s.ComplexTypes[i].Sequence[ii].Name,
-					}
-					t.Fields = append(t.Fields, fi)
-				}
-			} else {
-				_, b := extractNamespace(s.ComplexTypes[i].Content.Extension.Base)
-				t.Fields = append(t.Fields, Field{Name: exportableSymbol(b)})
-				for ii := 0; ii < len(s.ComplexTypes[i].Content.Extension.Sequence); ii++ {
-					fi := Field{
-						Name:    exportableSymbol(s.ComplexTypes[i].Content.Extension.Sequence[ii].Name),
-						Type:    decodeType(s.ComplexTypes[i].Content.Extension.Sequence[ii]),
-						XMLName: s.ComplexTypes[i].Content.Extension.Sequence[ii].Name,
-					}
-					t.Fields = append(t.Fields, fi)
-				}
-			}
-			data.Types = append(data.Types, t)
-		}
-	}
+//		if e.ComplexTypes == nil {
+//			c = findComplexType(s, e.Name)
+//		} else {
+//			c = e.ComplexTypes
+//		}
 
-	for i := 0; i < len(d.PortType.Operations); i++ {
+//		message := Message{}
+//		if c.Name != "" {
+//			message.Name = exportableSymbol(c.Name)
+//			message.XMLName.Local = c.Name
+//		} else {
+//			message.Name = exportableSymbol(e.Name)
+//			message.XMLName.Local = e.Name
+//		}
 
-		m := Method{}
-		m.Name = exportableSymbol(d.PortType.Operations[i].Name)
-		// TODO: get correct action in binding area
-		m.Action = ""
+//		if len(c.Sequence) > 0 {
 
-		// find input parameter type
-		e := findElement(s, d.PortType.Operations[i].Input.Message, d.Messages)
-		fmt.Printf("find elements message: %s\n", d.PortType.Operations[i].Input.Message)
-		var c *xsd.ComplexType
+//			for _, v := range c.Sequence {
+//				messageParam := MessageParamIn{}
+//				messageParam.ParamName = exportableSymbol(v.Name)
+//				messageParam.XMLParamName = v.Name
+//				_, t := extractNamespace(v.Type)
+//				messageParam.ParamType = t
+//				messageParam.Input = true
 
-		if e.ComplexTypes == nil {
-			c = findComplexType(s, e.Name)
-		} else {
-			c = e.ComplexTypes
-		}
+//				message.Params = append(message.Params, messageParam)
+//			}
+//			data.Messages = append(data.Messages, message)
+//			_, st := extractNamespace(c.Sequence[0].Type)
+//			m.InputType = st
+//			m.MessageIn = message.Name
+//			m.ParamInName = message.ParamName
+//			fmt.Printf("DEBUG: message param %s\n",message.Name)
+//			m.HasParams = true
+//		} else {
+//			m.HasParams = false
+//		}
 
-		message := Message{}
-		if c.Name != "" {
-			message.Name = exportableSymbol(c.Name)
-			message.XMLName = c.Name
-		} else {
-			message.Name = exportableSymbol(e.Name)
-			message.XMLName = e.Name
-		}
+//		// find output parameter type
+//		e = findElement(s, op.Output.Message, d.Messages)
 
-		if len(c.Sequence) > 0 {
-			
-			for _, v := range c.Sequence {
-				messageParam := MessageParamIn{}
-				messageParam.ParamName = exportableSymbol(v.Name)
-				messageParam.XMLParamName = v.Name
-				_, t := extractNamespace(v.Type)
-				messageParam.ParamType = exportableSymbol(t)
-				messageParam.Input = true
+//		if e.ComplexTypes == nil {
+//			c = findComplexType(s, e.Name)
+//		} else {
+//			c = e.ComplexTypes
+//		}
 
-				message.Params = append(message.Params, messageParam)
-			}
-			data.Messages = append(data.Messages, message)
-			_, st := extractNamespace(c.Sequence[0].Type)
-			m.InputType = exportableSymbol(st)
-			m.MessageIn = message.Name
-			m.ParamInName = message.ParamName
-			m.HasParams = true
-		} else {
-			m.HasParams = false
-		}
+//		message = Message{}
 
-		// find output parameter type
-		e = findElement(s, d.PortType.Operations[i].Output.Message, d.Messages)
+//		//message.Name = exportableSymbol(c.Name)
+//		//message.XMLName = c.Name
 
-		if e.ComplexTypes == nil {
-			c = findComplexType(s, e.Name)
-		} else {
-			c = e.ComplexTypes
-		}
+//		if c.Name != "" {
+//			message.Name = exportableSymbol(c.Name)
+//			message.XMLName.Local = c.Name
+//		} else {
+//			message.Name = exportableSymbol(e.Name)
+//			message.XMLName.Local = e.Name
+//		}
 
+//		for _, v := range c.Sequence {
+//			messageParam := MessageParamIn{}
+//			messageParam.ParamName = exportableSymbol(v.Name)
+//			messageParam.XMLParamName = v.Name
+//			_, t := extractNamespace(v.Type)
+//			messageParam.ParamType = exportableSymbol(t)
+//			messageParam.Input = false
 
-		message = Message{}
+//			message.Params = append(message.Params, messageParam)
+//		}
 
-		//message.Name = exportableSymbol(c.Name)
-		//message.XMLName = c.Name
+//		/*message.ParamName = exportableSymbol(c.Sequence[0].Name)
+//		message.XMLParamName = c.Sequence[0].Name
+//		message.ParamType = exportableSymbol(c.Sequence[0].Type[si+1:])
+//		message.Input = false*/
 
-		if c.Name != "" {
-			message.Name = exportableSymbol(c.Name)
-			message.XMLName = c.Name
-		} else {
-			message.Name = exportableSymbol(e.Name)
-			message.XMLName = e.Name
-		}
-
-		for _, v := range c.Sequence {
-			messageParam := MessageParamIn{}
-			messageParam.ParamName = exportableSymbol(v.Name)
-			messageParam.XMLParamName = v.Name
-			_, t := extractNamespace(v.Type)
-			messageParam.ParamType = exportableSymbol(t)
-			messageParam.Input = false
-
-			message.Params = append(message.Params, messageParam)
-		}
-
-		/*message.ParamName = exportableSymbol(c.Sequence[0].Name)
-		message.XMLParamName = c.Sequence[0].Name
-		message.ParamType = exportableSymbol(c.Sequence[0].Type[si+1:])
-		message.Input = false*/
-
-		data.Messages = append(data.Messages, message)
-		_, st := extractNamespace(c.Sequence[0].Type)
-		m.OutputType = exportableSymbol(st)
-		m.MessageOut = message.Name
-		m.ParamOutName = exportableSymbol(c.Sequence[0].Name)
-
-		data.Methods = append(data.Methods, m)
-	}
+//		data.Messages = append(data.Messages, message)
+//		_, st := extractNamespace(c.Sequence[0].Type)
+//		m.OutputType = exportableSymbol(st)
+//		m.MessageOut = message.Name
+//		m.ParamOutName = exportableSymbol(c.Sequence[0].Name)
+//		data.Methods = append(data.Methods, m)
+//	}
 
 	// executa o template para geração do arquivo com
 	// o serviço que será consumido
@@ -314,8 +274,60 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	}
 }
 
+func createStructsType(schemas []xsd.Schema) (st []StructType) {
+
+	for _, s := range schemas {
+		for _, simt := range s.SimpleTypes {
+			st = append(st, structSimpleType(simt, s.TargetNamespace))
+			fmt.Printf("DEBUG: simpletype added: %s\n", st)
+		}
+		for _, ct := range s.ComplexTypes {
+			st = append(st, structComplexType(ct, s.TargetNamespace))
+		}
+	}
+
+	return
+}
+
+func structSimpleType(simt xsd.SimpleType, ns string) (st StructType) {
+	st.XMLName.Local = simt.Name
+	st.XMLName.Space = ns
+	st.Fields = append(st.Fields, Field{Name: simt.Name, Type: simt.Restriction.Base})
+	return
+}
+
+func structComplexType(ct xsd.ComplexType, ns string) (st StructType) {
+	st.XMLName.Local = exportableSymbol(ct.Name)
+	st.XMLName.Space = ns
+	fmt.Println("DEBUG: namespace "+ns)
+	for _, seq := range ct.Sequence {
+		var f Field
+		f.Name = exportableSymbol(seq.Name)
+		f.XMLName = decodeElementType(seq)
+		f.Type = f.XMLName.Local
+		st.Fields = append(st.Fields, f)
+	}
+
+	return
+}
+
+func structMessage(m wsdl.Message)(st StructType){
+	st.XMLName.Local = m.Name
+	for _,p := range m.Part {
+		f := Field{}
+		f.Name=p.Element
+	}
+	return
+}
+
+
+
+func createStructMessage(d wsdl.Definitions){
+	
+}
+
 func findElement(s *xsd.Schema, t string, msg []wsdl.Message) *xsd.Element {
-	_ ,t = extractNamespace(t)
+	_, t = extractNamespace(t)
 
 	t = strings.Replace(t, "SoapIn", "", -1)
 	t = strings.Replace(t, "SoapOut", "Response", -1)
@@ -327,7 +339,9 @@ func findElement(s *xsd.Schema, t string, msg []wsdl.Message) *xsd.Element {
 	}
 	for _, m := range msg {
 		if m.Name == t {
-			ps := strings.Split(m.Part.Element, ":")
+			var ps []string
+			for _,p := range m.Part{
+			ps = strings.Split(p.Element, ":")}
 
 			return findElement(s, ps[len(ps)-1], msg)
 		}
@@ -349,10 +363,10 @@ func findComplexType(s *xsd.Schema, n string) *xsd.ComplexType {
 }
 
 func exportableSymbol(s string) string {
-	if strings.Contains(s,":"){
+	if strings.Contains(s, ":") {
 		panic(s)
 	}
-	fmt.Printf("DEBUG: exportableSymbol %s\n", s)
+	//fmt.Printf("DEBUG: exportableSymbol %s\n", s)
 	return strings.ToUpper(s[0:1]) + s[1:]
 }
 
@@ -368,43 +382,50 @@ func extractNamespace(elt string) (ns, e string) {
 	return
 }
 
-func decodeType(e xsd.Element) string {
+func decodeElementType(e xsd.Element) (ty xml.Name) {
 	t := e.Type
 	ns, t := extractNamespace(t)
-	// TODO(dops): tratar
-	if ns == "" && e.Name == "entry" {
-		return "[]Entry"
-	}
 	if ns == "xs" || ns == "xsd" {
 		switch t {
 		case "string":
-			return "string"
+			ty.Local="string"
+			ty.Space=ns
+			return
 		case "boolean":
-			return "bool"
+			ty.Local="string"
+			ty.Space=ns
+			return
 		case "decimal", "double":
-			return "float64"
+			ty.Local="string"
+			ty.Space=ns
+			return
+		case "int":
+			ty.Local="string"
+			ty.Space=ns
+			return
+		case "unsignedInt":
+			ty.Local="string"
+			ty.Space=ns
+			return
 		default:
-			return "nil"
+			ty.Local=""
+			ty.Space=""
+			return
 		}
-	} else if ns == "s" {
-		switch t {
-		case "string":
-			return "string"
-		case "boolean":
-			return "bool"
-		case "decimal", "double":
-			return "float64"
-		default:
-			return "nil"
+	} else if ns==""{
+				if e.MaxOccurs == "unbounded" {
+			ty.Local = "[]" + t
+		} else if v, _ := strconv.ParseInt(e.MaxOccurs, 10, 64); v > 1 {
+			ty.Local = "[" + e.MaxOccurs + "]" + t
 		}
-		//	} else if t[0:3] == "tns" {
+		return ty
 	} else {
 
-		ty := exportableSymbol(t)
+		t := exportableSymbol(t)
 		if e.MaxOccurs == "unbounded" {
-			ty = "[]" + ty
-		}
-		fmt.Printf("%s:%s\n", ns, ty)
+			ty.Local = "[]" + t
+		} else if v, _ := strconv.ParseInt(e.MaxOccurs, 10, 64); v > 1 {
+			ty.Local = "[" + e.MaxOccurs + "]" + t		}
 		return ty
 	}
 	panic("unknown type")

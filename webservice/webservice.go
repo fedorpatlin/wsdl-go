@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"strings"
 
-	"code.google.com/p/wsdl-go/soap"
+	"github.com/fedorpatlin/wsdl-go/soap"
 )
 
 type SoapIn interface {

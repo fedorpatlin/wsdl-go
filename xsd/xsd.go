@@ -6,14 +6,12 @@ import (
 
 type Schema struct {
 	XMLName            xml.Name      `xml:"http://www.w3.org/2001/XMLSchema schema"`
-	TNS                string        `xml:"xmlns tns",attr`
-	XS                 string        `xml:"xmlns xs,attr"`
 	TargetNamespace    string        `xml:"targetNamespace,attr"`
 	ElementFormDefault string        `xml:"elementFormDefault,attr"`
 	Version            string        `xml:"version,attr"`
 	Elements           []Element     `xml:"http://www.w3.org/2001/XMLSchema element"`
 	ComplexTypes       []ComplexType `xml:"http://www.w3.org/2001/XMLSchema complexType"`
-	SimpleTypes        []SimpleType  `xml:http://www.w3.org/2001/XMLSchema simpleType`
+	SimpleTypes        []SimpleType  `xml:"http://www.w3.org/2001/XMLSchema simpleType"`
 }
 
 type Element struct {
@@ -53,12 +51,8 @@ type Import struct {
 }
 
 type SimpleType struct {
-	Name     string       `xml:"name,attr"`
-	Sequence *Restriction `xml:"restriction"`
-}
-
-type Sequence struct {
-	Elements []*Element `xml:"http://www.w3.org/2001/XMLSchema element"`
+	Name        string       `xml:"name,attr"`
+	Restriction *Restriction `xml:"restriction"`
 }
 
 type Restriction struct {

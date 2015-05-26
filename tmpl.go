@@ -5,7 +5,7 @@ var (
 package {{.PackageName}}
 
 import (
-	ws "code.google.com/p/wsdl-go/webservice"
+	ws "github.com/fedorpatlin/wsdl-go/webservice"
 	"encoding/xml"
 )
 
@@ -25,16 +25,19 @@ func New{{.ServiceName}}() *{{.ServiceName}}{
 	return &s
 }
 {{with $s := .}}
+//complexTypes
 {{range .Types}}
-type {{.Name}} struct {
+type {{.XMLName.Local}} struct {
 	XMLNamespace string {{TagDelimiter}}xml:"xmlns,attr"{{TagDelimiter}}
-	{{range .Fields}}{{.Name}} {{if StringHasValue .Type}}{{.Type}}{{end}} {{if StringHasValue .XMLName}}{{TagDelimiter}}xml:"{{.XMLName}}"{{TagDelimiter}}{{end}}
+	{{range .Fields}}{{.Name}} {{if StringHasValue .Type}}{{.Type}}{{end}} {{if StringHasValue .XMLName.Local}}{{TagDelimiter}}xml:"{{.XMLName.Space}} {{.XMLName.Local}}"{{TagDelimiter}}{{end}}
 	{{end}}
 }
 {{end}}
+
+//messages
 {{range .Messages}}
 type {{.Name}} struct {
-	XMLName xml.Name        {{TagDelimiter}}xml:"http://webservice.auth.app.bsbr.altec.com/ {{.XMLName}}"{{TagDelimiter}}
+	XMLName xml.Name        {{TagDelimiter}}xml:"{{if StringHasValue .XMLName.Space}} {{.XMLName.Space}} {{end}} {{.XMLName.Local}}"{{TagDelimiter}}
 	{{if .Input}}Action  string          {{TagDelimiter}}xml:"-"{{TagDelimiter}}{{end}}
 	{{range .Params}}
 	{{.ParamName}} {{.ParamType}} {{TagDelimiter}}xml:"{{.XMLParamName}}"{{TagDelimiter}}
@@ -44,8 +47,9 @@ type {{.Name}} struct {
 {{if .Input}}func (si {{.Name}}) GetAction() string {
 	return si.Action
 }{{end}}
-{{end}}{{range .Methods}}
-func (s *{{$s.ServiceName}}) {{.Name}}({{if .HasParams}}p{{end}} {{.InputType}}) (r *{{.OutputType}}, err error) {
+{{end}}
+{{range .Methods}}
+func (s *{{$s.ServiceName}}) {{.Name}}({{if .HasParams}}p {{.InputType}}{{end}}) (r *{{.OutputType}}, err error) {
 	{{if .HasParams}}si := {{.MessageIn}}{}
 	si.Action = "{{.Action}}"
 	si.{{.ParamInName}} = p{{end}}

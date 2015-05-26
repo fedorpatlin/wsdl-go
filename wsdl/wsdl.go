@@ -3,7 +3,7 @@ package wsdl
 import (
 	"encoding/xml"
 
-	"code.google.com/p/wsdl-go/xsd"
+	"github.com/fedorpatlin/wsdl-go/xsd"
 )
 
 type Definitions struct {
@@ -23,7 +23,7 @@ type Type struct {
 
 type Message struct {
 	Name string `xml:"name,attr"`
-	Part Part   `xml:"part"`
+	Part []Part   `xml:"part"`
 }
 
 type Part struct {
