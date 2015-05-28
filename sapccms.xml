@@ -2842,7 +2842,7 @@
 <service name="SAPCCMS">
  <documentation>The SAPCCMS Web Service can be used to monitor an SAP instance from a central CCMS or a local UI</documentation>
  <port name="SAPCCMS" binding="tns:SAPCCMS">
-  <SOAP:address location="http://ascserp1:50013/SAPCCMS.cgi"/>
+  <SOAP:address location="http://10.2.254.21:50013/SAPCCMS.cgi"/>
  </port>
 </service>
 

@@ -23,7 +23,7 @@ type Type struct {
 
 type Message struct {
 	Name string `xml:"name,attr"`
-	Part []Part   `xml:"part"`
+	Part []Part `xml:"part"`
 }
 
 type Part struct {
