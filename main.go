@@ -129,7 +129,6 @@ func getMessagesFromOperation(op wsdl.PortTypeOperation) map[string][]wsdl.Messa
 	ms["input"] = appendIfNotNil(ms["input"], findMessageByName(getName(op.Input.Message)))
 	ms["output"] = appendIfNotNil(ms["output"], findMessageByName(getName(op.Output.Message)))
 	ms["fault"] = appendIfNotNil(ms["fault"], findMessageByName(getName(op.Fault.Message)))
-	fmt.Printf("DEBUG: messagesOperation %s, %s\n", ms, op.Name)
 	return ms
 }
 
@@ -170,7 +169,7 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	//	if err != nil {
 	//		exit(err)
 	//	}
-	tmpl1, err := template.New("").Funcs(funcMap).Parse(tmpl_intro + tmpl_complex_type + tmpl_elements + tmpl_operations)
+	tmpl1, err := template.New("").Funcs(funcMap).Parse(tmpl_intro + tmpl_complex_type + tmpl_elements + tmpl_operations + tmpl_soap)
 	err = tmpl1.Execute(file, data)
 	if err == nil {
 		exit(err)
