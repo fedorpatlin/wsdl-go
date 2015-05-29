@@ -118,16 +118,47 @@ func exit(err error) {
 	os.Exit(1)
 }
 
+func getMessagesFromOperation(op wsdl.PortTypeOperation) map[string][]wsdl.Message {
+	var ms = make(map[string][]wsdl.Message)
+	var appendIfNotNil = func(ar []wsdl.Message, ms *wsdl.Message) []wsdl.Message {
+		if ms != nil {
+			ar = append(ar, *ms)
+		}
+		return ar
+	}
+	ms["input"] = appendIfNotNil(ms["input"], findMessageByName(getName(op.Input.Message)))
+	ms["output"] = appendIfNotNil(ms["output"], findMessageByName(getName(op.Output.Message)))
+	ms["fault"] = appendIfNotNil(ms["fault"], findMessageByName(getName(op.Fault.Message)))
+	fmt.Printf("DEBUG: messagesOperation %s, %s\n", ms, op.Name)
+	return ms
+}
+
+func findMessageByName(msgName string) (msg *wsdl.Message) {
+	if msgName == "" {
+		return nil
+	}
+	for _, m := range data.Wsdl.Messages {
+
+		if m.Name == msgName {
+			//			fmt.Printf("DEBUG: search msg %s in %s\n", msgName, m.Name)
+			msg = &m
+			return
+		}
+	}
+	return nil
+}
+
 // create cria o arquivo com o serviço a ser consumido
 func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) {
 	funcMap := template.FuncMap{
-		"StringHasValue":    StringHasValue,
-		"TagDelimiter":      TagDelimiter,
-		"decodeElementType": decodeElementType,
-		"decodeType":        decodeType,
-		"getName":           getName,
-		"getNsPrefix":       getNsPrefix,
-		"exportableSymbol":  exportableSymbol,
+		"StringHasValue":           StringHasValue,
+		"TagDelimiter":             TagDelimiter,
+		"decodeElementType":        decodeElementType,
+		"decodeType":               decodeType,
+		"getName":                  getName,
+		"getNsPrefix":              getNsPrefix,
+		"exportableSymbol":         exportableSymbol,
+		"getMessagesFromOperation": getMessagesFromOperation,
 	}
 	data.PackageName = *packageName
 	data.ServiceName = d.Service.Name
@@ -139,7 +170,7 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	//	if err != nil {
 	//		exit(err)
 	//	}
-	tmpl1, err := template.New("").Funcs(funcMap).Parse(tmpl_intro + tmpl_complex_type + tmpl_elements + tmpl_messages + tmpl_operations)
+	tmpl1, err := template.New("").Funcs(funcMap).Parse(tmpl_intro + tmpl_complex_type + tmpl_elements + tmpl_operations)
 	err = tmpl1.Execute(file, data)
 	if err == nil {
 		exit(err)
