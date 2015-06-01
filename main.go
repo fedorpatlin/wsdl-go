@@ -164,11 +164,6 @@ func create(d *wsdl.Definitions, s *xsd.Schema, b *bufio.Writer, file *os.File) 
 	data.ServiceUrl = d.Service.Port.Address.Location
 	data.Wsdl = d
 
-	// create the template
-	//	tmpl, err := template.New("").Funcs(funcMap).Parse(tmplService)
-	//	if err != nil {
-	//		exit(err)
-	//	}
 	tmpl1, err := template.New("").Funcs(funcMap).Parse(tmpl_intro + tmpl_complex_type + tmpl_elements + tmpl_operations + tmpl_soap)
 	err = tmpl1.Execute(file, data)
 	if err == nil {
