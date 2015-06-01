@@ -89,7 +89,7 @@ func (s *{{$GlobSvcName}}) {{.Name}}(inMs *{{template "MsgPrefix" .Input.Message
 	var envRcv = NewSoapEnvelope()
 	envSnd.Body.Content = inMs
 	envRcv.Body.Content = outMs
-	if err := SendRequest(envSnd, envRcv); err != nil {
+	if err := s.SendRequest(envSnd, envRcv); err != nil {
 		return err
 	}
 	outMs = envRcv.Body.Content.(*{{template "MsgPrefix" .Output.Message}})
@@ -152,13 +152,13 @@ type SoapFault struct {
 	Detail      string   {{template "Tag" "detail"}}
 }
 
-func SendRequest(send, receive *SoapEnvelope) error {
+func (s *SAPCCMS)SendRequest(send, receive *SoapEnvelope) error {
 	sendMarshalled, err := xml.MarshalIndent(&send, "", "  ")
 	if err != nil {
 		return nil
 	}
 	var soapreader = strings.NewReader(string(sendMarshalled))
-	resp, err := http.Post("http://sap-dia5:50013/SAPCCMS.cgi", "text/xml; charset=utf-8", soapreader)
+	resp, err := http.Post(s.Url, "text/xml; charset=utf-8", soapreader)
 	if err != nil {
 		return err
 	}
