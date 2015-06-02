@@ -38,6 +38,7 @@ type PortType struct {
 
 type PortTypeOperation struct {
 	Name   string                   `xml:"name,attr"`
+	Documentation string			`xml:"documentation"`
 	Input  PortTypeOperationMessage `xml:"input"`
 	Output PortTypeOperationMessage `xml:"output"`
 	Fault  PortTypeOperationMessage `xml:"fault"`
