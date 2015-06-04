@@ -1,5 +1,6 @@
 # wsdl-go
 Project was cloned from repo automatically exported from code.google.com/p/wsdl-go/
+License GPLv3 http://www.gnu.org/licenses/gpl.html
 
 wsdl-go generates source code to call web-service methods.
 Now it works with wsdl-document for SOAP interface of sap ccms agent (included in saphostagent)
