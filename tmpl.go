@@ -23,67 +23,30 @@ func New{{$GlobSvcName}}(url string)(svc {{$GlobSvcName}}){
 }
 `
 const tmpl_complex_type = `{{range .Wsdl.Types.Schemas}}
+// simple types
 {{range .SimpleTypes}}
 type {{exportableSymbol .Name}} struct{
 	{{exportableSymbol .Name}} {{(decodeType .Restriction.Base).Local}} {{template "Tag" .Name}}
 }
-
-func (t {{exportableSymbol .Name}}) Get{{exportableSymbol .Name}}() {{(decodeType .Restriction.Base).Local}} {
-	return t.{{.Name}}
-}
-
-func (t *{{exportableSymbol .Name}}) Set{{exportableSymbol .Name}} (val {{(decodeType .Restriction.Base).Local}}) {
-	t.{{.Name}} = val
-}
 {{end}}
-
+// complex types
 {{range .ComplexTypes}}
 type {{$t := exportableSymbol .Name}} {{exportableSymbol .Name}} struct {
-{{range .Sequence}}{{exportableSymbol .Name}} {{(decodeElementType .).Local}} {{template "Tag" .Name}}
+{{range .Sequence}}	{{exportableSymbol .Name}} {{(decodeElementType .).Local}} {{template "Tag" .Name}}
 {{end}}}
-{{range .Sequence}}
-func (t {{$t}})Get{{exportableSymbol .Name}}(){{(decodeElementType .).Local}}{
-	return t.{{exportableSymbol .Name}}
-}
-
-func (t *{{$t}})Set{{exportableSymbol .Name}}(val {{(decodeElementType .).Local}}){
-	t.{{exportableSymbol .Name}} = val
-}
 {{end}}
-{{end}}
-{{end}}`
-
-const tmpl_elements = `{{range .Wsdl.Types.Schemas}}
+// anonymous types
 {{range .Elements}}
 type {{exportableSymbol .Name}} struct{
 	{{range .ComplexTypes.Sequence}}{{exportableSymbol .Name}} {{(decodeType .Type).Local}}  {{template "Tag" .Name}}
 	{{end}}
 }
-{{$t:= exportableSymbol .Name}}{{range .ComplexTypes.Sequence}}
-// Returns {{exportableSymbol .Name}} of struct {{$t}}
-func (t {{$t}}) Get{{exportableSymbol .Name}}(){{(decodeType .Type).Local}}{
-	return t.{{exportableSymbol .Name}}
-}
+{{end}}
 
-// Set {{exportableSymbol .Name}} of struct {{$t}} to value val
-func (t *{{$t}}) Set{{exportableSymbol .Name}}(val {{(decodeType .Type).Local}}){
-	t.{{exportableSymbol .Name}} = val
-}
-{{end}}
-{{end}}
 {{end}}`
 
-
-
+const tmpl_elements = ""
 const tmpl_operations = `{{$tns:=.Wsdl.TargetNamespace}}
-// input message name is Name of Operation
-// output message name is Name of a Message
-
-//type {{.Wsdl.PortType.Name}} interface {
-//	{{range .Wsdl.PortType.Operations}}
-//	{{.Name}}({{if .Input.Message}}inMessage *Msg{{exportableSymbol .Input.Message}}{{end}}{{if .Output.Message}}, outMessage *Msg{{exportableSymbol .Output.Message}}{{end}}{{if .Fault.Message}}, faultMessage *{{.Fault.Message}}{{end}}) error
-//	{{end}}
-//}
 {{$t := exportableSymbol .Wsdl.PortType.Name}}
 {{range .Wsdl.PortType.Operations}}
 
@@ -156,7 +119,7 @@ type SoapFault struct {
 	Detail      string   {{template "Tag" "detail"}}
 }
 
-func (s *SAPCCMS)SendRequest(send, receive *SoapEnvelope) error {
+func (s *{{$GlobSvcName}})SendRequest(send, receive *SoapEnvelope) error {
 	sendMarshalled, err := xml.MarshalIndent(&send, "", "  ")
 	if err != nil {
 		return nil
